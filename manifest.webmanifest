@@ -2,7 +2,7 @@
   "name": "다른 하나 찾기",
   "short_name": "다른 하나",
   "lang": "ko",
-  "id": "/odd-one-out/",
+  "id": "/odd-one-out/app2",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
