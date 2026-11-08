@@ -125,7 +125,7 @@
           <button id="again" class="btn" type="button">처음부터</button>
           <button id="full" class="btn wide" type="button">전체 화면</button>
         </div>
-        <p class="note">60개(10×6) 중에서 하나만 다른 그림을 찾아요. 어려울수록 다른 그림이 더 비슷해요. 틀리면 흔들리고, 두 번 틀리면 노란 점선으로 알려 줘요.</p>
+        <p class="note">60개(10×6) 중에서 하나만 다른 그림을 찾아요. 표정·기울기·크기·색이 아주 조금 달라요. 어려울수록 더 비슷해요. 틀리면 흔들리고, 두 번 틀리면 노란 점선으로 알려 줘요.</p>
         <button id="menuClose" class="btn primary" type="button">닫고 하기</button>
       </div>
     </div>
@@ -149,20 +149,21 @@
   const PAIRS = [['🍎','🍏'],['🐶','🐱'],['🌻','🌼'],['🚗','🚕'],['⭐','🌟'],['🍊','🍋'],['🐟','🐠'],['🌙','⭐'],
     ['🍓','🍒'],['🐔','🐤'],['🌷','🌹'],['🍉','🍈'],['🐢','🐸'],['🚌','🚎'],['🏠','🏡'],['☀️','🌞'],['🍇','🫐'],['🐰','🐹'],
     ['🎈','🎀'],['☂️','🌂'],['🍞','🥐'],['🐮','🐷'],['🌳','🌲'],['🦆','🐓'],['⚽','🏀'],['🍌','🌽']];
-  const SOLO = ['🍎','🐟','🚗','🌻','🐤','🎈','🐢','🍓','🦋','🐌','🌷','🍉','🚲','🐦','🍄','🐝'];
+  const SOLO = ['🍎','🐟','🚗','🌻','🐤','🎈','🐢','🍓','🦋','🐌','🌷','🍉','🐦','🍄','🐝'];
   // 방향이 있는 그림 (좌우로 뒤집으면 달라 보이는 것)
-  const FACING = ['🐟','🚗','🐌','🐤','🚲','🐦','🦆','🐢','🚌','🐓','🐕','🐎','✈️','🚜'];
-  // 아주 비슷한 얼굴·물건 짝 (영상 퀴즈처럼 표정 하나만 다른 것)
-  const FACES = [['😀','😃'],['😃','😄'],['😁','😄'],['😆','😁'],['😊','😌'],['🙂','🙃'],['🙂','😊'],['😐','😑'],['😶','😐'],
-    ['😟','🙁'],['🙁','😕'],['😢','😥'],['😰','😥'],['😧','😦'],['😮','😯'],['😲','😮'],['😗','😙'],['😚','😙'],['😒','😑'],
-    ['😔','😞'],['😴','😪'],['😷','🤒'],['😎','🤓'],['😺','😸'],['😸','😹'],['😼','😺'],['🙀','😿'],['🥵','😡'],['😠','😡'],
-    ['🌝','🌚'],['🌕','🌖'],['🌗','🌓'],['💛','🧡'],['📕','📙'],['🔑','🗝️'],['🐱','🐯'],['🐭','🐹'],['🐻','🐨']];
+  const FACING = ['🐟','🚗','🐌','🐤','🐦','🦆','🐢','🚌','🐓','🐕','🐎','✈️','🚜'];
+  // 비슷한 얼굴 짝 — 표정이 조금 다른 것(mid)과 눈·입 모양 하나만 다른 것(hard)
+  const FACES_MID = [['😆','😁'],['😊','😌'],['🙂','🙃'],['🙂','😊'],['😶','😐'],['😢','😥'],['😲','😮'],['😴','😪'],['😷','🤒'],
+    ['😸','😹'],['😼','😺'],['🙀','😿'],['😠','😡'],['🌝','🌚'],['🌗','🌓'],['🐭','🐹'],['🐻','🐨']];
+  const FACES_HARD = [['😀','😃'],['😃','😄'],['😁','😄'],['😗','😙'],['😚','😙'],['😧','😦'],['😮','😯'],['😟','🙁'],['🙁','😕'],
+    ['😐','😑'],['😒','😑'],['😔','😞'],['😥','😰'],['😺','😸'],['🌕','🌖'],['😀','😁'],['😊','☺️'],['😙','😗']];
   const CLOCKS = ['🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛'];
   // 판은 모두 10×6(60개) — 영상(15×8)보다 조금 적게. 난이도는 다른 그림이 얼마나 비슷한지로
+  //  turn: 기울인 각도, hue: 색 바꾸는 정도, size: 크기 — 숫자가 작을수록 알아보기 어렵다
   const LEVEL = {
-    1: { cols: 10, rows: 6, hue: 120, kinds: ['pair', 'pair', 'face', 'color'] },
-    2: { cols: 10, rows: 6, hue: 70,  kinds: ['face', 'face', 'face', 'pair', 'flip', 'color'] },
-    3: { cols: 10, rows: 6, hue: 40,  kinds: ['face', 'face', 'face', 'clock', 'flip', 'turn', 'color'] }
+    1: { cols: 10, rows: 6, hue: 40, turn: 20, size: .84, kinds: ['mid', 'mid', 'hard', 'flip', 'turn'] },
+    2: { cols: 10, rows: 6, hue: 28, turn: 14, size: .88, kinds: ['hard', 'hard', 'mid', 'clock', 'turn', 'color', 'size'] },
+    3: { cols: 10, rows: 6, hue: 18, turn: 9,  size: .92, kinds: ['hard', 'hard', 'hard', 'clock', 'turn', 'color', 'size'] }
   };
 
   const store = {
@@ -200,12 +201,13 @@
     const L = LEVEL[prefs.level], n = L.cols*L.rows, kind = pick(L.kinds);
     let same, odd, oddStyle = '';
     const either = p => Math.random() < .5 ? p : [p[1], p[0]];
-    if (kind === 'pair') [same, odd] = either(pick(PAIRS));
-    else if (kind === 'face') [same, odd] = either(pick(FACES));
+    if (kind === 'mid') [same, odd] = either(pick(FACES_MID));
+    else if (kind === 'hard') [same, odd] = either(pick(FACES_HARD));
     else if (kind === 'clock'){ const i = Math.floor(Math.random()*12); [same, odd] = either([CLOCKS[i], CLOCKS[(i + 1) % 12]]); }
-    else if (kind === 'color'){ same = odd = pick(SOLO); oddStyle = `filter:hue-rotate(${L.hue + Math.round(Math.random()*30)}deg) saturate(1.2)`; }
+    else if (kind === 'color'){ same = odd = pick(SOLO); oddStyle = `filter:hue-rotate(${L.hue + Math.round(Math.random()*10)}deg)`; }
     else if (kind === 'flip'){ same = odd = pick(FACING); oddStyle = 'transform:scaleX(-1)'; }
-    else { same = odd = pick(FACING); oddStyle = `transform:rotate(${Math.random() < .5 ? -30 : 30}deg)`; }
+    else if (kind === 'size'){ same = odd = pick(SOLO); oddStyle = `transform:scale(${L.size})`; }
+    else { same = odd = pick(FACING.concat(SOLO)); oddStyle = `transform:rotate(${Math.random() < .5 ? -L.turn : L.turn}deg)`; }
     R.q = { n, ans: Math.floor(Math.random()*n), miss: 0 };
     $('#qn').textContent = R.at + 1;
     grid.textContent = '';
