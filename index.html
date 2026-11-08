@@ -69,17 +69,26 @@
     background:var(--brass);color:var(--brass-ink);border-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.45)
   }
   /* 영상 퀴즈처럼 한 판에 같은 그림을 가득 늘어놓는다 — 밝은 판 위에 그림만 */
-  .grid{position:absolute;display:grid;gap:var(--gap);padding:var(--gap);border-radius:18px;background:#F4ECD8;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  /* 확대하면 판(grid)이 커지고, 보이는 창(view) 밖은 가린다 */
+  .view{position:absolute;overflow:hidden;border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.35);touch-action:none}
+  .grid{position:absolute;left:0;top:0;display:grid;gap:var(--gap);padding:var(--gap);background:#F4ECD8;transform-origin:0 0}
+  .view .cell{touch-action:none}
+  .unzoom{margin-left:auto;min-height:48px;padding:0 18px;font-size:19px;font-weight:700;background:var(--brass);color:var(--brass-ink);border-color:transparent}
+  /* 칸은 화면에 맞춰 가로로 길 수도 있다 — 그림(--s)은 칸 가운데, 동그라미는 그림 둘레 */
   .cell{
-    display:grid;place-items:center;border-radius:50%;border:3px solid transparent;background:transparent;cursor:pointer;
-    touch-action:manipulation;padding:0;line-height:1;overflow:hidden
+    position:relative;display:grid;place-items:center;border:0;background:transparent;cursor:pointer;
+    touch-action:manipulation;padding:0;line-height:1
   }
-  .cell img{width:88%;height:88%;object-fit:contain;display:block;pointer-events:none}
-  .cell.right{border-color:#E0336E;box-shadow:0 0 0 5px #E0336E;overflow:visible}
+  .cell img{width:var(--s);height:var(--s);object-fit:contain;display:block;pointer-events:none}
+  .cell::after{
+    content:'';position:absolute;left:50%;top:50%;width:calc(var(--s) + 12px);height:calc(var(--s) + 12px);
+    transform:translate(-50%,-50%);border-radius:50%;border:5px solid transparent;pointer-events:none
+  }
+  .cell.right::after{border-color:#E0336E}
   .cell.wrong{animation:shake .4s}
-  .cell.hint{border-color:#E0A21B;border-style:dashed;border-width:4px}
+  .cell.hint::after{border-color:#E0A21B;border-style:dashed}
   @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
-  @media (prefers-reduced-motion:reduce){ .cell.wrong{animation:none;border-color:#C25A45} }
+  @media (prefers-reduced-motion:reduce){ .cell.wrong{animation:none} .cell.wrong::after{border-color:#C25A45} }
   .veil{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:rgba(8,12,20,.55);overflow:auto;z-index:3}
   .card{
     width:min(100%,460px);padding:26px 24px 24px;border-radius:18px;
@@ -102,8 +111,9 @@
       <span class="prog"><b id="qn">1</b> / <span id="qt">10</span></span>
       <span class="ask">하나만 다른 그림을 눌러요</span>
       <div class="stars" id="stars"></div>
+      <button id="unzoom" class="btn unzoom" type="button" hidden>원래 크기</button>
     </div>
-    <div class="grid" id="grid" role="grid" aria-label="그림"></div>
+    <div class="view" id="view"><div class="grid" id="grid" role="grid" aria-label="그림"></div></div>
     <button id="gear" class="btn gear" type="button">설정</button>
 
     <div class="veil" id="menu" hidden>
@@ -125,7 +135,7 @@
           <button id="again" class="btn" type="button">처음부터</button>
           <button id="full" class="btn wide" type="button">전체 화면</button>
         </div>
-        <p class="note">60개(10×6) 중에서 하나만 다른 그림을 찾아요. 표정·기울기·크기·색이 아주 조금 달라요. 어려울수록 더 비슷해요. 틀리면 흔들리고, 두 번 틀리면 노란 점선으로 알려 줘요.</p>
+        <p class="note">40개(8×5) 중에서 하나만 다른 그림을 찾아요. 표정·기울기·크기·색이 아주 조금 달라요. 어려울수록 더 비슷해요. 틀리면 흔들리고, 두 번 틀리면 노란 점선으로 알려 줘요.</p>
         <button id="menuClose" class="btn primary" type="button">닫고 하기</button>
       </div>
     </div>
@@ -158,12 +168,12 @@
   const FACES_HARD = [['😀','😃'],['😃','😄'],['😁','😄'],['😗','😙'],['😚','😙'],['😧','😦'],['😮','😯'],['😟','🙁'],['🙁','😕'],
     ['😐','😑'],['😒','😑'],['😔','😞'],['😥','😰'],['😺','😸'],['🌕','🌖'],['😀','😁'],['😊','☺️'],['😙','😗']];
   const CLOCKS = ['🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛'];
-  // 판은 모두 10×6(60개) — 영상(15×8)보다 조금 적게. 난이도는 다른 그림이 얼마나 비슷한지로
+  // 판은 모두 8×5(40개) — 그림을 크게. 난이도는 다른 그림이 얼마나 비슷한지로
   //  turn: 기울인 각도, hue: 색 바꾸는 정도, size: 크기 — 숫자가 작을수록 알아보기 어렵다
   const LEVEL = {
-    1: { cols: 10, rows: 6, hue: 40, turn: 20, size: .84, kinds: ['mid', 'mid', 'hard', 'flip', 'turn'] },
-    2: { cols: 10, rows: 6, hue: 28, turn: 14, size: .88, kinds: ['hard', 'hard', 'mid', 'clock', 'turn', 'color', 'size'] },
-    3: { cols: 10, rows: 6, hue: 18, turn: 9,  size: .92, kinds: ['hard', 'hard', 'hard', 'clock', 'turn', 'color', 'size'] }
+    1: { cols: 8, rows: 5, hue: 40, turn: 20, size: .84, kinds: ['mid', 'mid', 'hard', 'flip', 'turn'] },
+    2: { cols: 8, rows: 5, hue: 28, turn: 14, size: .88, kinds: ['hard', 'hard', 'mid', 'clock', 'turn', 'color', 'size'] },
+    3: { cols: 8, rows: 5, hue: 18, turn: 9,  size: .92, kinds: ['hard', 'hard', 'hard', 'clock', 'turn', 'color', 'size'] }
   };
 
   const store = {
@@ -219,9 +229,11 @@
       grid.appendChild(b);
     }
     R.q.busy = false;
+    Z = { s: 1, x: 0, y: 0 };
     layout();
   }
   grid.addEventListener('click', e => {
+    if (dragged){ dragged = false; return; } // 확대·끌기한 손가락을 뗀 것은 누른 것이 아님
     const b = e.target.closest('.cell');
     if (!b || !R || R.q.busy) return;
     wakeAudio();
@@ -254,16 +266,61 @@
     const W = stage.clientWidth, H = stage.clientHeight, L = LEVEL[prefs.level], top = 78, pad = 12;
     const cols = L.cols, rows = L.rows;
     const gap = Math.round(Math.max(4, Math.min(W, H)*.008));
-    // 판 안쪽 여백(gap)까지 넣어서 가장 크게
-    const cs = Math.floor(Math.min((W - 2*pad - gap*(cols+1))/cols, (H - top - pad - gap*(rows+1))/rows));
-    const gw = cols*cs + gap*(cols+1), gh = rows*cs + gap*(rows+1);
+    // 판이 화면 가로·세로를 꽉 채운다 — 칸은 가로로 길어질 수 있고, 그림은 칸의 짧은 쪽에 맞춘다
+    const cw = Math.floor((W - 2*pad - gap*(cols+1))/cols), ch = Math.floor((H - top - pad - gap*(rows+1))/rows);
+    const gw = cols*cw + gap*(cols+1), gh = rows*ch + gap*(rows+1);
     grid.style.setProperty('--gap', gap + 'px');
-    grid.style.setProperty('--cs', cs + 'px');
-    grid.style.gridTemplateColumns = `repeat(${cols}, ${cs}px)`;
-    grid.style.gridAutoRows = cs + 'px';
-    grid.style.left = Math.round((W - gw)/2) + 'px';
-    grid.style.top = Math.round(top + (H - top - pad - gh)/2) + 'px';
+    grid.style.setProperty('--s', Math.floor(Math.min(cw, ch)*.86) + 'px');
+    grid.style.gridTemplateColumns = `repeat(${cols}, ${cw}px)`;
+    grid.style.gridAutoRows = ch + 'px';
+    view.style.left = Math.round((W - gw)/2) + 'px';
+    view.style.top = Math.round(top + (H - top - pad - gh)/2) + 'px';
+    view.style.width = gw + 'px'; view.style.height = gh + 'px';
+    applyZoom();
   }
+
+  // ---------- 확대: 두 손가락으로 벌리면 커지고(최대 4배), 커진 동안 한 손가락으로 끌어 옮긴다 ----------
+  const view = $('#view'), turned = matchMedia('(orientation: portrait)');
+  let Z = { s: 1, x: 0, y: 0 }, gest = null, dragged = false;
+  const pts = new Map();
+  // 세로 화면이면 앱이 90도 돌아가 있으니 손가락 위치도 돌려서 본다
+  const appXY = e => turned.matches ? { x: e.clientY, y: innerWidth - e.clientX } : { x: e.clientX, y: e.clientY };
+  const local = p => ({ x: p.x - view.offsetLeft, y: p.y - view.offsetTop });
+  function applyZoom(){
+    const vw = view.clientWidth, vh = view.clientHeight;
+    Z.s = Math.min(4, Math.max(1, Z.s));
+    Z.x = Math.min(0, Math.max(vw - vw*Z.s, Z.x)); Z.y = Math.min(0, Math.max(vh - vh*Z.s, Z.y));
+    grid.style.transform = Z.s > 1 ? `translate(${Z.x}px,${Z.y}px) scale(${Z.s})` : '';
+    $('#unzoom').hidden = Z.s < 1.05;
+  }
+  function startGesture(){
+    const ps = [...pts.values()];
+    if (ps.length >= 2){
+      const a = local(ps[0]), b = local(ps[1]);
+      gest = { pinch: true, d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: Z.s, x0: Z.x, y0: Z.y, m0: { x: (a.x + b.x)/2, y: (a.y + b.y)/2 } };
+    } else if (ps.length === 1) gest = { pinch: false, x0: Z.x, y0: Z.y, p0: local(ps[0]) };
+    else gest = null;
+  }
+  view.addEventListener('pointerdown', e => { if (!pts.size) dragged = false; pts.set(e.pointerId, appXY(e)); startGesture(); });
+  view.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId) || !gest) return;
+    pts.set(e.pointerId, appXY(e));
+    const ps = [...pts.values()];
+    if (gest.pinch && ps.length >= 2){
+      const a = local(ps[0]), b = local(ps[1]), m = { x: (a.x + b.x)/2, y: (a.y + b.y)/2 };
+      const s = Math.min(4, Math.max(1, gest.s0*Math.hypot(a.x - b.x, a.y - b.y)/gest.d0));
+      // 처음 두 손가락 사이에 있던 그림이 손가락 사이에 그대로 있게
+      const gx = (gest.m0.x - gest.x0)/gest.s0, gy = (gest.m0.y - gest.y0)/gest.s0;
+      Z.s = s; Z.x = m.x - gx*s; Z.y = m.y - gy*s; dragged = true; applyZoom();
+    } else if (!gest.pinch && Z.s > 1){
+      const a = local(ps[0]), dx = a.x - gest.p0.x, dy = a.y - gest.p0.y;
+      if (Math.hypot(dx, dy) > 10) dragged = true;
+      if (dragged){ Z.x = gest.x0 + dx; Z.y = gest.y0 + dy; applyZoom(); }
+    }
+  });
+  const lift = e => { if (pts.delete(e.pointerId)) startGesture(); };
+  view.addEventListener('pointerup', lift); view.addEventListener('pointercancel', lift);
+  $('#unzoom').addEventListener('click', () => { Z = { s: 1, x: 0, y: 0 }; applyZoom(); });
 
   // ---------- 소리 ----------
   let ac = null;
