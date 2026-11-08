@@ -68,16 +68,16 @@
     position:absolute;right:12px;top:12px;min-height:54px;padding:0 22px;font-size:20px;font-weight:700;z-index:2;
     background:var(--brass);color:var(--brass-ink);border-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.45)
   }
-  .grid{position:absolute;display:grid;gap:var(--gap)}
+  /* 영상 퀴즈처럼 한 판에 같은 그림을 가득 늘어놓는다 — 밝은 판 위에 그림만 */
+  .grid{position:absolute;display:grid;gap:var(--gap);padding:var(--gap);border-radius:18px;background:#F4ECD8;box-shadow:0 8px 24px rgba(0,0,0,.35)}
   .cell{
-    display:grid;place-items:center;border-radius:18px;border:3px solid transparent;background:#F4ECD8;cursor:pointer;
-    touch-action:manipulation;padding:0;line-height:1;font-size:calc(var(--cs)*.62);overflow:hidden;
-    box-shadow:0 6px 16px rgba(0,0,0,.3)
+    display:grid;place-items:center;border-radius:50%;border:3px solid transparent;background:transparent;cursor:pointer;
+    touch-action:manipulation;padding:0;line-height:1;overflow:hidden
   }
-  .cell img{width:78%;height:78%;object-fit:contain;display:block;pointer-events:none}
-  .cell.right{border-color:var(--brass);box-shadow:0 0 0 6px var(--brass),0 6px 16px rgba(0,0,0,.3)}
+  .cell img{width:88%;height:88%;object-fit:contain;display:block;pointer-events:none}
+  .cell.right{border-color:#E0336E;box-shadow:0 0 0 5px #E0336E;overflow:visible}
   .cell.wrong{animation:shake .4s}
-  .cell.hint{border-color:#FFD66E;border-style:dashed}
+  .cell.hint{border-color:#E0A21B;border-style:dashed;border-width:4px}
   @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
   @media (prefers-reduced-motion:reduce){ .cell.wrong{animation:none;border-color:#C25A45} }
   .veil{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:rgba(8,12,20,.55);overflow:auto;z-index:3}
@@ -125,7 +125,7 @@
           <button id="again" class="btn" type="button">처음부터</button>
           <button id="full" class="btn wide" type="button">전체 화면</button>
         </div>
-        <p class="note">쉬움 4개 · 보통 6~9개 · 어려움 12~16개 중에서 하나만 다른 그림을 찾아요. 틀리면 흔들리고, 두 번 틀리면 노란 테두리로 알려 줘요.</p>
+        <p class="note">60개(10×6) 중에서 하나만 다른 그림을 찾아요. 어려울수록 다른 그림이 더 비슷해요. 틀리면 흔들리고, 두 번 틀리면 노란 점선으로 알려 줘요.</p>
         <button id="menuClose" class="btn primary" type="button">닫고 하기</button>
       </div>
     </div>
@@ -152,10 +152,17 @@
   const SOLO = ['🍎','🐟','🚗','🌻','🐤','🎈','🐢','🍓','🦋','🐌','🌷','🍉','🚲','🐦','🍄','🐝'];
   // 방향이 있는 그림 (좌우로 뒤집으면 달라 보이는 것)
   const FACING = ['🐟','🚗','🐌','🐤','🚲','🐦','🦆','🐢','🚌','🐓','🐕','🐎','✈️','🚜'];
+  // 아주 비슷한 얼굴·물건 짝 (영상 퀴즈처럼 표정 하나만 다른 것)
+  const FACES = [['😀','😃'],['😃','😄'],['😁','😄'],['😆','😁'],['😊','😌'],['🙂','🙃'],['🙂','😊'],['😐','😑'],['😶','😐'],
+    ['😟','🙁'],['🙁','😕'],['😢','😥'],['😰','😥'],['😧','😦'],['😮','😯'],['😲','😮'],['😗','😙'],['😚','😙'],['😒','😑'],
+    ['😔','😞'],['😴','😪'],['😷','🤒'],['😎','🤓'],['😺','😸'],['😸','😹'],['😼','😺'],['🙀','😿'],['🥵','😡'],['😠','😡'],
+    ['🌝','🌚'],['🌕','🌖'],['🌗','🌓'],['💛','🧡'],['📕','📙'],['🔑','🗝️'],['🐱','🐯'],['🐭','🐹'],['🐻','🐨']];
+  const CLOCKS = ['🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛'];
+  // 판은 모두 10×6(60개) — 영상(15×8)보다 조금 적게. 난이도는 다른 그림이 얼마나 비슷한지로
   const LEVEL = {
-    1: { n: [4], hue: 150, kinds: ['pair', 'color', 'pair'] },
-    2: { n: [6, 9], hue: 90, kinds: ['pair', 'color', 'flip'] },
-    3: { n: [12, 16], hue: 55, kinds: ['pair', 'color', 'flip', 'size'] }
+    1: { cols: 10, rows: 6, hue: 120, kinds: ['pair', 'pair', 'face', 'color'] },
+    2: { cols: 10, rows: 6, hue: 70,  kinds: ['face', 'face', 'face', 'pair', 'flip', 'color'] },
+    3: { cols: 10, rows: 6, hue: 40,  kinds: ['face', 'face', 'face', 'clock', 'flip', 'turn', 'color'] }
   };
 
   const store = {
@@ -190,12 +197,15 @@
     question();
   }
   function question(){
-    const L = LEVEL[prefs.level], n = pick(L.n), kind = pick(L.kinds);
+    const L = LEVEL[prefs.level], n = L.cols*L.rows, kind = pick(L.kinds);
     let same, odd, oddStyle = '';
-    if (kind === 'pair'){ const p = pick(PAIRS); [same, odd] = Math.random() < .5 ? p : [p[1], p[0]]; }
-    else if (kind === 'color'){ same = odd = pick(SOLO); oddStyle = `filter:hue-rotate(${L.hue + Math.round(Math.random()*40)}deg) saturate(1.3)`; }
+    const either = p => Math.random() < .5 ? p : [p[1], p[0]];
+    if (kind === 'pair') [same, odd] = either(pick(PAIRS));
+    else if (kind === 'face') [same, odd] = either(pick(FACES));
+    else if (kind === 'clock'){ const i = Math.floor(Math.random()*12); [same, odd] = either([CLOCKS[i], CLOCKS[(i + 1) % 12]]); }
+    else if (kind === 'color'){ same = odd = pick(SOLO); oddStyle = `filter:hue-rotate(${L.hue + Math.round(Math.random()*30)}deg) saturate(1.2)`; }
     else if (kind === 'flip'){ same = odd = pick(FACING); oddStyle = 'transform:scaleX(-1)'; }
-    else { same = odd = pick(SOLO); oddStyle = 'transform:scale(.72)'; }
+    else { same = odd = pick(FACING); oddStyle = `transform:rotate(${Math.random() < .5 ? -30 : 30}deg)`; }
     R.q = { n, ans: Math.floor(Math.random()*n), miss: 0 };
     $('#qn').textContent = R.at + 1;
     grid.textContent = '';
@@ -238,21 +248,19 @@
   // 화면에 가장 크게 들어가는 줄·칸
   function layout(){
     if (!R || !R.q) return;
-    const W = stage.clientWidth, H = stage.clientHeight, n = R.q.n, top = 78, pad = 16;
-    const gap = Math.round(Math.max(10, Math.min(W, H)*.02));
-    let best = null;
-    for (let cols = 1; cols <= n; cols++){
-      const rows = Math.ceil(n/cols);
-      const cs = Math.min((W - 2*pad - gap*(cols-1))/cols, (H - top - pad - gap*(rows-1))/rows);
-      if (!best || cs > best.cs) best = { cols, rows, cs };
-    }
-    const cs = Math.floor(best.cs);
+    // 판은 늘 가로로 정해진 줄·칸 (세로 화면이면 앱 전체가 돌아가 있다)
+    const W = stage.clientWidth, H = stage.clientHeight, L = LEVEL[prefs.level], top = 78, pad = 12;
+    const cols = L.cols, rows = L.rows;
+    const gap = Math.round(Math.max(4, Math.min(W, H)*.008));
+    // 판 안쪽 여백(gap)까지 넣어서 가장 크게
+    const cs = Math.floor(Math.min((W - 2*pad - gap*(cols+1))/cols, (H - top - pad - gap*(rows+1))/rows));
+    const gw = cols*cs + gap*(cols+1), gh = rows*cs + gap*(rows+1);
     grid.style.setProperty('--gap', gap + 'px');
     grid.style.setProperty('--cs', cs + 'px');
-    grid.style.gridTemplateColumns = `repeat(${best.cols}, ${cs}px)`;
+    grid.style.gridTemplateColumns = `repeat(${cols}, ${cs}px)`;
     grid.style.gridAutoRows = cs + 'px';
-    grid.style.left = Math.round((W - (best.cols*cs + gap*(best.cols-1)))/2) + 'px';
-    grid.style.top = Math.round(top + (H - top - pad - (best.rows*cs + gap*(best.rows-1)))/2) + 'px';
+    grid.style.left = Math.round((W - gw)/2) + 'px';
+    grid.style.top = Math.round(top + (H - top - pad - gh)/2) + 'px';
   }
 
   // ---------- 소리 ----------
